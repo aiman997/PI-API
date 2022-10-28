@@ -19,7 +19,7 @@ ADS1115_REG_CONFIG_PGA_0_256V        = 0x0A # 0.256V range = Gain 16
 
 ads1115 = ADS1115()
 ec      = DFRobot_EC()
-ph      = DFRobot_PH()
+ph      = Ph()
 
 PH_State     = False
 PH_Reading   = 0.0
@@ -62,48 +62,48 @@ i2c = busio.I2C(board.SCL, board.SDA)
 
 #Processor
 
-#PhOn 
+#PhOn
 #PhOff
 #PhRead
 #Phcalibrate
 
-#EcOn 
+#EcOn
 #EcOff
 #EcRead
 #EcCalibrate
 
-#TempOn 
+#TempOn
 #TempOff
 #Tempead
 #TempCalibrate
 
-#WaterLvlOn 
+#WaterLvlOn
 #WaterLvlOff
 #WaterlvlRead
 #WaterLvlCalibrate
 
-#WaterFlowOn 
+#WaterFlowOn
 #WaterFlowOff
 #WaterFlowRead
 #WaterFlowCalibrate
 
-#ValveInOn 
+#ValveInOn
 #ValveInOff
 
-#ValveOutOn 
+#ValveOutOn
 #ValveOutOff
 
-#PhUpOn 
+#PhUpOn
 #PhUpOff
 
-#PhDwnOn 
-#PhDwnOff 
+#PhDwnOn
+#PhDwnOff
 
 #EcUpOn
 #EcUpOff
 
-#PhDwnOn 
-#PhDwnOff 
+#PhDwnOn
+#PhDwnOff
 
 
 
@@ -111,7 +111,7 @@ i2c = busio.I2C(board.SCL, board.SDA)
 
 act_HIGH_List = [20, 26, 11, 19, 13 ,6, 21,5,7]
 act_LOW_List = [12, 16, 8]
-pinmap = {"EC": 7, "PH": 8, "TEMP":11, "WL":19, "ECUP":20, "PHUP":12, "PHDWN":16, "MPUMP":21} 
+pinmap = {"EC": 7, "PH": 8, "TEMP":11, "WL":19, "ECUP":20, "PHUP":12, "PHDWN":16, "MPUMP":21}
 sleepTimeShort = 0.2
 sleepTimeLong = 0.1
 
@@ -131,8 +131,24 @@ def Processor(relay, rstate, key, state):
     return response
 
 @app.route('/PhOn', methods=['GET'])
-def PhOn(): 
-    global Ph_State 
+def PhOn():
+    global Ph_State
+
+    component.component(Ph, on)
+    #??
+    relay, rstate, key, state = 'PH', GPIO.LOW, 'PH_State', True
+    try:
+        result = Processor(relay, rstate, key, state)
+        PH_State = state
+        return result
+
+    except Exception as e:
+        a = f'Error: {str(e)}'
+        return a
+
+@app.route('/PhOn', methods=['GET'])
+def PhOn():
+    global Ph_State
     relay, rstate, key, state = 'PH', GPIO.LOW, 'PH_State', True
     try:
         result = Processor(relay, rstate, key, state)
@@ -145,7 +161,7 @@ def PhOn():
 
 @app.route('/PhOff', methods=['GET'])
 def PhOff():
-    global PH_State 
+    global PH_State
     relay, rstate, key, state = 'PH', GPIO.HIGH, 'PH_State', False
     try:
         result = Processor(relay, rstate, key, state)
@@ -182,7 +198,7 @@ def PhRead():
             print(temperature)
             #Convert voltage to PH with temperature compensation
             PHread = ph.readPH(adc1['r'],temperature)
-            print("PHread") 
+            print("PHread")
             print(PHread)
             PH_Reading = round(PHread , 3)
             PHV = adc1['r']
@@ -199,8 +215,8 @@ def PhRead():
 
 @app.route('/EcOn', methods=['GET'])
 def EcOn():
-    
-    global EC_State 
+
+    global EC_State
     relay, rstate, key, state = 'EC', GPIO.LOW, 'PH_State', True
     try:
         result = Processor(relay, rstate, key, state)
@@ -275,7 +291,7 @@ def TempOn():
         response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
         print(response)
         return response
-    
+
     except Exception as e:
         str = f'Error: {str(e)}'
     return str
@@ -556,7 +572,7 @@ def MPUMPtest():
 @app.route('/Tick', methods=['GET'])
 def Tick():
     try:
-        global PH_Reading 
+        global PH_Reading
         #PH_Reading = float( AnalogIn(ads, ADS.P0).voltage)
         data = {"PH_State":PH_State,"PH_Reading":PH_Reading,"EC_State":EC_State,"EC_Reading":EC_Reading,"TEMP_State":TEMP_State,"TEMP_Reading":TEMP_Reading,"WL_State":WL_State,"WL_Reading":WL_Reading,"MPUMP_State":MPUMP_State,"ECUP_State":ECUP_State,"PHUP_State":PHUP_State,"PHDWN_State":PHDWN_State}
         response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
