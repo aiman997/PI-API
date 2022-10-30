@@ -79,8 +79,7 @@ i2c = busio.I2C(board.SCL, board.SDA)
 act_HIGH_List = [20, 26, 11, 19, 13 ,6, 21,5,7]
 act_LOW_List = [5]
 pinmap = {"EC": 11, "PH": 8, "Tp":7, "Wl":19, "ECUP":20, "PHUP":12, "PHDWN":16, "MPUMP":21} 
-sleepTimeShort = 0.2
-sleepTimeLong = 0.1
+
 
 cpu = CPUTemperature()
 print("PI CPU Temperature: ")
@@ -131,8 +130,9 @@ def PhRead():
     except Exception as e:
         return  f'Error: {str(e)}'
 
+
 @app.route('/EcOn', methods=['GET'])
-def EcOn(): 
+def EcOn():
     try:
         return ec.on(pinmap['EC'])
     except Exception as e:
@@ -430,6 +430,8 @@ def ValOutOff():
 @app.route('/Tick', methods=['GET'])
 def Tick():
     try:
+        global PH_Reading
+        #PH_Reading = float( AnalogIn(ads, ADS.P0).voltage)
         data = {"PH_State":PH_State,"PH_Reading":PH_Reading,"EC_State":EC_State,"EC_Reading":EC_Reading,"TEMP_State":TEMP_State,"TEMP_Reading":TEMP_Reading,"WL_State":WL_State,"WL_Reading":WL_Reading,"MPUMP_State":MPUMP_State,"ECUP_State":ECUP_State,"PHUP_State":PHUP_State,"PHDWN_State":PHDWN_State}
         response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
         print(data)
