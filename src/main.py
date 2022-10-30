@@ -1,14 +1,26 @@
 import sys
 import time
-sys.path.append('./modules')
-from DFRobot_ADS1115 import ADS1115
-from DFRobot_EC      import DFRobot_EC
-from DFRobot_PH      import DFRobot_PH
 import board
 import busio
-import RPi.GPIO as GPIO
 from flask import Flask
 from flask import json, request, render_template, redirect, url_for
+from gpiozero import CPUTemperature
+import RPi.GPIO as GPIO
+sys.path.append('./modules')
+from DFRobot_ADS1115 import ADS1115
+sys.path.append('./Sensors')
+from EC      import EC
+from Ph      import Ph
+from TP      import Tp
+from Wl      import Wl
+from Wf      import Wf
+sys.path.append('./Actuators')
+from P1      import P1
+from P2      import P2
+from P3      import P3
+from Mp      import Mp
+from V1      import V1
+from V2      import V2
 
 ADS1115_REG_CONFIG_PGA_6_144V        = 0x00 # 6.144V range = Gain 2/3
 ADS1115_REG_CONFIG_PGA_4_096V        = 0x02 # 4.096V range = Gain 1
@@ -18,8 +30,17 @@ ADS1115_REG_CONFIG_PGA_0_512V        = 0x08 # 0.512V range = Gain 8
 ADS1115_REG_CONFIG_PGA_0_256V        = 0x0A # 0.256V range = Gain 16
 
 ads1115 = ADS1115()
-ec      = DFRobot_EC()
-ph      = DFRobot_PH()
+ec      = EC()
+ph      = Ph()
+tp      = Tp()
+wl      = Wl()
+wf      = Wf()
+p1      = P1()
+p2      = P2()
+p3      = P3()
+mp      = Mp()
+v1      = V1()
+v2      = V2()
 
 PH_State     = False
 PH_Reading   = 0.0
@@ -39,81 +60,31 @@ app = Flask(__name__)
 GPIO.setmode(GPIO.BCM)
 i2c = busio.I2C(board.SCL, board.SDA)
 
-#ads = ADS.ADS1115(i2c)
 # GPIO LAYOUT
 # CHANNEL | | GPIO_NO | |  COMP  |
 #---------|-|---------|-|--------|
-#   01    | |   08    | |  PH    |
-#   02    | |   06    | |  WL    |
-#   03    | |   11    | |  EC    |
-#   04    | |   07    | |  TEMP  |
-#   05    | |   12    | |  PHUP  |
-#   06    | |   20    | |  PHDWN |
-#   07    | |   16    | |  ECUP  |
-#   08    | |   21    | |  MPUMP |
-#   09    | |   26    | |  WIN   |
-#   10    | |   19    | |  WOUT  |
-#   11    | |   05    | |  WFLOW |
-#   12    | |   13
-
-
-
-#############################################################################
-
-#Processor
-
-#PhOn 
-#PhOff
-#PhRead
-#Phcalibrate
-
-#EcOn 
-#EcOff
-#EcRead
-#EcCalibrate
-
-#TempOn 
-#TempOff
-#Tempead
-#TempCalibrate
-
-#WaterLvlOn 
-#WaterLvlOff
-#WaterlvlRead
-#WaterLvlCalibrate
-
-#WaterFlowOn 
-#WaterFlowOff
-#WaterFlowRead
-#WaterFlowCalibrate
-
-#ValveInOn 
-#ValveInOff
-
-#ValveOutOn 
-#ValveOutOff
-
-#PhUpOn 
-#PhUpOff
-
-#PhDwnOn 
-#PhDwnOff 
-
-#EcUpOn
-#EcUpOff
-
-#PhDwnOn 
-#PhDwnOff 
-
-
-
-############################################################################
+#   01    | |   08    | |  Ph    |
+#   02    | |   11    | |  EC    |
+#   03    | |   07    | |  Tp    |
+#   04    | |   19    | |  Wl    |
+#   05    | |   12    | |  Wf    |
+#   06    | |   20    | |  P1    |
+#   07    | |   16    | |  P2    |
+#   08    | |   21    | |  P3    |
+#   09    | |   26    | |  Mp    |
+#   10    | |   19    | |  V1    |
+#   11    | |   06    | |  V2    |
+#   12    | |   05    | |  F1    |
 
 act_HIGH_List = [20, 26, 11, 19, 13 ,6, 21,5,7]
-act_LOW_List = [12, 16, 8]
-pinmap = {"EC": 7, "PH": 8, "TEMP":11, "WL":19, "ECUP":20, "PHUP":12, "PHDWN":16, "MPUMP":21} 
+act_LOW_List = [5]
+pinmap = {"EC": 11, "PH": 8, "Tp":7, "Wl":19, "ECUP":20, "PHUP":12, "PHDWN":16, "MPUMP":21} 
 sleepTimeShort = 0.2
 sleepTimeLong = 0.1
+
+cpu = CPUTemperature()
+print("PI CPU Temperature: ")
+print(cpu.temperature)
 
 for i in act_HIGH_List:
     GPIO.setup(i, GPIO.OUT)
@@ -121,278 +92,192 @@ for i in act_HIGH_List:
 
 for i in act_LOW_List:
     GPIO.setup(i, GPIO.OUT)
-    GPIO.output(i, GPIO.HIGH)
+    GPIO.output(i, GPIO.LOW)
 
-
-def Processor(relay, rstate, key, state):
-    GPIO.output(pinmap[relay], rstate)
-    data = {key: state}
-    response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
-    return response
 
 @app.route('/PhOn', methods=['GET'])
-def PhOn(): 
-    global Ph_State 
-    relay, rstate, key, state = 'PH', GPIO.LOW, 'PH_State', True
+def PhOn():
     try:
-        result = Processor(relay, rstate, key, state)
-        PH_State = state
-        return result
-
+        return ph.on(pinmap['PH'])
+    
     except Exception as e:
-        a = f'Error: {str(e)}'
-        return a
+        return f'Error: {str(e)}'
 
 @app.route('/PhOff', methods=['GET'])
 def PhOff():
-    global PH_State 
-    relay, rstate, key, state = 'PH', GPIO.HIGH, 'PH_State', False
     try:
-        result = Processor(relay, rstate, key, state)
-        PH_State = state
-        return result
+        return ph.off(pinmap['PH'])
 
     except Exception as e:
-        str = f'Error: {str(e)}'
-    return str
+        return f'Error: {str(e)}'
+
 
 @app.route('/PhRead', methods=['GET'])
 def PhRead():
-        global PH_Reading
-        global PH_State
-        global TEMP_Reading
-        global TEMP_State
-
-        try:
-            GPIO.output(pinmap['PH'], GPIO.LOW)
-            GPIO.output(pinmap['TEMP'], GPIO.LOW)
-            TEMP_State = True
-            PH_State = True
-            #Set the IIC address
-            ads1115.setAddr_ADS1115(0x48)
-            #Sets the gain and input voltage range.
-            ads1115.setGain(ADS1115_REG_CONFIG_PGA_4_096V)
-            #Get the Digital Value of Analog of selected channel
-            adc1 = ads1115.readVoltage(1)
-            adc2 = ads1115.readVoltage(2)
-            TEMPV = adc2['r']
-            #temperature = TEMPV
-            print("right before temp")
-            temperature = 25.0
-            print(temperature)
-            #Convert voltage to PH with temperature compensation
-            PHread = ph.readPH(adc1['r'],temperature)
-            print("PHread") 
-            print(PHread)
-            PH_Reading = round(PHread , 3)
-            PHV = adc1['r']
-            print ("temperature:%.1f ^C PHmV:%.2f mv PH:%.2f" %(temperature,PHV,PH_Reading))
-            print(TEMPV)
-            data = {"PH_Reading": PH_Reading,"PH_State": PH_State, "temperature": TEMP_Reading, "TEMP_State": TEMP_State}
-            response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
-            print(response)
-            return response
-
-        except Exception as e:
-            x = f'Error: {str(e)}'
-        return x
-
-@app.route('/EcOn', methods=['GET'])
-def EcOn():
-    
-    global EC_State 
-    relay, rstate, key, state = 'EC', GPIO.LOW, 'PH_State', True
     try:
-        result = Processor(relay, rstate, key, state)
-        EC_State = state
-        return result
+        PhOn()
+        #temp.on(pinmap['Tp'])
+        ads1115.setAddr_ADS1115(0x48)
+        ads1115.setGain(ADS1115_REG_CONFIG_PGA_4_096V)
+        adc3 = ads1115.readVoltage(2)
+        #adc2 = ads1115.readVoltage(2)
+        tp = 25.0
+        read = ph.read(adc3['r'],tp)
+        data = {"PhRead": read,"PhState": False, "temperature": tp, "TpState": False}
+        PhOff()
+        response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
+        return response
 
     except Exception as e:
-        x = f'Error: {str(e)}'
-    return x
+        return  f'Error: {str(e)}'
+
+@app.route('/EcOn', methods=['GET'])
+def EcOn(): 
+    try:
+        return ec.on(pinmap['EC'])
+    except Exception as e:
+        return f'Error: {str(e)}'
 
 @app.route('/EcOff', methods=['GET'])
 def EcOff():
-    #GPIO.output(pinmap['EC'], GPIO.HIGH)
-    global EC_State
     try:
-        GPIO.output(pinmap['EC'], GPIO.HIGH)
-        global EC_State
-        EC_State = False
-        data = {"EC_State": EC_State}
-        response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
-        print(response)
-        return response
+        return ec.off(pinmap['EC'])
 
     except Exception as e:
-        er = f'Error: {str(e)}'
-    return er
+        return f'Error: {str(e)}'
+
 
 @app.route('/EcRead', methods=['GET'])
 def EcRead():
-    global EC_Reading
-    global EC_State
-    global TEMP_Reading
-    global TEMP_State
     try:
-        GPIO.output(pinmap['EC'], GPIO.HIGH)
-        GPIO.output(pinmap['TEMP'], GPIO.HIGH)
-        EC_State = True
-        TEMP_State = True
-        #Set the IIC address
+        EcOn()
+        #temp.on(pinmap['Tp'])
         ads1115.setAddr_ADS1115(0x48)
-        #Sets the gain and input voltage range.
         ads1115.setGain(ADS1115_REG_CONFIG_PGA_4_096V)
-        #Get the Digital Value of Analog of selected channel
-        adc0 = ads1115.readVoltage(0)
-        adc2 = ads1115.readVoltage(1)
-        #Read your temperature sensor to execute temperature compensation
-        TEMP_Reading = adc0['r']
-        temperature = TEMP_Reading
-        #Convert voltage to PH with temperature compensation
-        EC_Reading = ec.readEC(adc2['r'],temperature)
-        ECV = adc2['r']
-        print ("temperature:%.1f ^C ECmV:%.2f mv EC:%.2f" %(temperature,ECV,EC_Reading))
-        data = {"EC_Reading": EC_Reading, "EC_State": EC_State, "TEMP_Reading":TEMP_Reading, "TEMP_State": TEMP_State}
+        adc0 = ads1115.readVoltage(1)
+        #adc2 = ads1115.readVoltage(2)
+        tp = 25.0
+        read = ec.read(adc0['r'],tp)
+        print(adc0['r'])
+        print(read)
+        data = {"EcRead": read,"EcState": False, "temperature": tp, "TpState": False}
         response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
-        print(data)
-        print(response)
-        return response
-
     except Exception as e:
-        er = f'Error: {str(e)}'
-    return er
+        return f'Error: {str(e)}'
 
-@app.route('/TempOn', methods=['GET'])
-def TempOn():
-    GPIO.output(pinmap['TEMP'], GPIO.LOW)
-    global EC_State
+@app.route('/TpOn', methods=['GET'])
+def TpOn():
     try:
-        GPIO.output(pinmap['TEMP'], GPIO.LOW)
-        global EC_State
-        EC_State = False
-        data = {"EC_State": EC_State}
-        response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
-        print(response)
-        return response
+        return tp.on(pinmap['Tp'])
+    except Exception as e:
+        return  f'Error: {str(e)}'
+
+@app.route('/TpOff', methods=['GET'])
+def TpOff():
+    try:
+        return tp.off(pinmap['Tp'])
     
     except Exception as e:
-        str = f'Error: {str(e)}'
-    return str
+        return  f'Error: {str(e)}'
 
-@app.route('/TempOff', methods=['GET'])
-def TempOff():
+@app.route('/TpRead', methods=['GET'])
+def TpRead():
     try:
-        GPIO.output(pinmap['TEMP'], GPIO.HIGH)
-        global TEMP_State
-        TEMP_State = False
-        data = {"TEMP_State": TEMP_State}
-        response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
-        print(response)
-        return response
-
-    except Exception as e:
-        str = f'Error: {str(e)}'
-    return str
-
-@app.route('/TempRead', methods=['GET'])
-def TempRead():
-    global TEMP_Reading
-    global TEMP_State
-    try:
-        GPIO.output(pinmap['TEMP'], GPIO.LOW)
-        TEMP_State = True
-        #Set the IIC address
         ads1115.setAddr_ADS1115(0x48)
-        #Sets the gain and input voltage range.
         ads1115.setGain(ADS1115_REG_CONFIG_PGA_4_096V)
-        #Get the Digital Value of Analog of selected channel
-        adc2 = ads1115.readVoltage(2)
-        TEMP_Reading = adc2['r']
-        print(TEMP_Reading)
-        data = {"TEMP_State": TEMP_State, "TEMP_Reading": TEMP_Reading}
+        adc0 = ads1115.readVoltage(1)
+        read = tp.read(adc0['r'])
+        print(adc0['r'])
+        data = {"TpRead": read,"TpState": False}
         response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
-        print(response)
         return response
 
     except Exception as e:
-        TEMP_ERROR = f'Error: {str(e)}'
-    return TEMP_ERROR
+        return f'Error: {str(e)}'
 
-@app.route('/WaterLvlOn', methods=['GET'])
-def WaterLvlOn():
+
+@app.route('/WlOn', methods=['GET'])
+def WlOn():
     try:
-        GPIO.output(pinmap['WL'], GPIO.HIGH)
-        global WL_State
-        WL_State = True
-        data = {"WL_State": WL_State}
-        response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
-        print(response)
-        return response
+        return wl.on(pinmap['Wl'])
 
     except Exception as e:
-        str = f'Error: {str(e)}'
-    return str
+        return f'Error: {str(e)}'
 
-@app.route('/WaterLvlOff', methods=['GET'])
-def WaterLvlOff():
+@app.route('/WlOff', methods=['GET'])
+def WlOff():
     try:
-        GPIO.output(pinmap['WL'], GPIO.LOW)
-        global WL_State
-        WL_State = False
-        data = {"WL_State": WL_State}
-        response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
-        print(response)
-        return response
+        return wl.off(pinmap['Wl']) 
 
     except Exception as e:
-        str = f'Error: {str(e)}'
-    return str
+        return f'Error: {str(e)}'
 
-@app.route('/WaterLvlRead', methods=['GET'])
-def WaterLvlRead():
+@app.route('/WlRead', methods=['GET'])
+def WlRead():
     try:
-        GPIO.output(pinmap['WL'], GPIO.HIGH)
-        global WL_Reading
-        TEMP_Reading = float(AnalogIn(ads, ADS.P0).voltage)
-        data = {"WL_Reading": WL_Reading}
+        ads1115.setAddr_ADS1115(0x48)
+        ads1115.setGain(ADS1115_REG_CONFIG_PGA_4_096V)
+        adc0 = ads1115.readVoltage(1)
+        read = tp.read(adc0['r'])
+        #read = float(AnalogIn(ads, ADS.P0).voltage)
+        Wl_Reading = wl.read(read)
+        data = {"Wl_Reading": Wl_Reading}
         response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
-        print(response)
         return response
 
     except Exception as e:
-        str = f'Error: {str(e)}'
-    return str
+        return f'Error: {str(e)}'
+
+@app.route('/WfOn', methods=['GET'])
+def WfOn():
+    try:
+        return wl.on(pinmap['Wl'])
+
+    except Exception as e:
+        return f'Error: {str(e)}'
+
+@app.route('/WfOff', methods=['GET'])
+def WfOff():
+    try:
+        return wl.off(pinmap['Wl']) 
+
+    except Exception as e:
+        return f'Error: {str(e)}'
+
+@app.route('/WfRead', methods=['GET'])
+def WfRead():
+    try:
+        ads1115.setAddr_ADS1115(0x48)
+        ads1115.setGain(ADS1115_REG_CONFIG_PGA_4_096V)
+        adc0 = ads1115.readVoltage(1)
+        read = wf.read(adc0['r'])
+        #read = float(AnalogIn(ads, ADS.P0).voltage)
+        Wf_Reading = wl.read(read)
+        data = {"Wf_Reading": Wf_Reading}
+        response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
+        return response
+
+    except Exception as e:
+        return f'Error: {str(e)}'
+
 
 @app.route('/EcUpOn', methods=['GET'])
 def EcUpOn():
     try:
-        GPIO.output(pinmap['ECUP'], GPIO.HIGH)
-        global ECUP_State
-        ECUP_State = True
-        data = {"ECUP_State": ECUP_State}
-        response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
-        print(response)
-        return response
+        #data = {"ECUP_State": ECUP_State}
+        #response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
+        return p1.on(pinmap['ECUP'])
 
     except Exception as e:
-        str = f'Error: {str(e)}'
-    return str
+        return 'Error: {str(e)}'
 
 @app.route('/EcUpOff', methods=['GET'])
 def EcUpOff():
     try:
-        GPIO.output(pinmap['ECUP'], GPIO.LOW)
-        global ECUP_State
-        ECUP_State = False
-        data = {"ECUP_State": ECUP_State}
-        response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
-        print(response)
-        return response
-
+        return p1.off(pinmap['ECUP'])
+    
     except Exception as e:
-        str = f'Error: {str(e)}'
-    return str
+        return f'Error: {str(e)}'
 
 @app.route('/ECUPtest', methods=['GET'])
 def EcUpTest():
@@ -414,35 +299,21 @@ def EcUpTest():
 @app.route('/PhUpOn', methods=['GET'])
 def PhUpOn():
     try:
-        GPIO.output(pinmap['PHUP'], GPIO.LOW)
-        global PHUP_State
-        PHUP_State = True
-        data = {"PHUP_State": PHUP_State}
-        response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
-        print(response)
-        return response
+        return p2.on(pinmap['PHUP']) 
 
     except Exception as e:
-        str = f'Error: {str(e)}'
-    return str
+        return f'Error: {str(e)}'
 
 @app.route('/PhUpOff', methods=['GET'])
 def PhUpOff():
     try:
-        GPIO.output(pinmap['PHUP'], GPIO.HIGH)
-        global PHUP_State
-        PHUP_State = False
-        data = {"PHUP_State": PHUP_State}
-        response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
-        print(response)
-        return response
+        return p2.off(pinmap['PHUP'])
 
     except Exception as e:
-        str = f'Error: {str(e)}'
-    return str
+        return f'Error: {str(e)}'
 
-@app.route('/PHUPtest', methods=['GET'])
-def PHUPtest():
+@app.route('/PhUptest', methods=['GET'])
+def PhUpTest():
     try:
         GPIO.output(pinmap['PHUP'], GPIO.HIGH)
         global PHUP_State
@@ -459,38 +330,24 @@ def PHUPtest():
     return str
 
 
-@app.route('/PHDWNon', methods=['GET'])
-def PHDWNon():
+@app.route('/PhDwnOn', methods=['GET'])
+def PhDwnOn():
     try:
-        GPIO.output(pinmap['PHDWN'], GPIO.LOW)
-        global PHDWN_State
-        PHDWN_State = True
-        data = {"PHDWN_State": PHDWN_State}
-        response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
-        print(response)
-        return response
+        return p3.on(pinmap['PHDWN'])
 
     except Exception as e:
-        str = f'Error: {str(e)}'
-    return str
+        return f'Error: {str(e)}'
 
-@app.route('/PHDWNoff', methods=['GET'])
-def PHDWNoff():
+@app.route('/PhDwnOff', methods=['GET'])
+def PhDwnOff():
     try:
-        GPIO.output(pinmap['PHDWN'], GPIO.LOW)
-        global PHDWN_State
-        PHDWN_State = False
-        data = {"PHDWN_State": PHDWN_State}
-        response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
-        print(response)
-        return response
+        return p3.off(pinmap['PHDWN'])
 
     except Exception as e:
-        str = f'Error: {str(e)}'
-    return str
+        return f'Error: {str(e)}'
 
-@app.route('/PHDWNtest', methods=['GET'])
-def PHDWNtest():
+@app.route('/PhDwnTest', methods=['GET'])
+def PhDwnTest():
     try:
         GPIO.output(pinmap['PHDWN'], GPIO.HIGH)
         global PHDWN_State
@@ -503,43 +360,29 @@ def PHDWNtest():
         return response
 
     except Exception as e:
-        str = f'Error: {str(e)}'
-    return str
+        return f'Error: {str(e)}'
 
-@app.route('/MPUMPon', methods=['GET'])
-def MPUMPon():
+@app.route('/MpOn', methods=['GET'])
+def MpOn():
     try:
-        GPIO.output(pinmap['MPUMP'], GPIO.HIGH)
-        global MPUMP_State
-        MPUMP_State = True
-        data = {"MPUMP_State": MPUMP_State}
-        response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
-        print(response)
-        return response
+        return mp.on(pinmap['Mp'])
 
     except Exception as e:
-        str = f'Error: {str(e)}'
-    return str
+        return f'Error: {str(e)}'
 
-@app.route('/MPUMPoff', methods=['GET'])
-def MPUMPoff():
-    GPIO.output(pinmap['MPUMP'], GPIO.LOW)
-    global MPUMP_State
-    MPUMP_State = False
+@app.route('/MpOff', methods=['GET'])
+def MpOff():
     try:
-        data = {"MPUMP_State": MPUMP_State}
-        response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
-        print(response)
-        return response
+        return mp.off(pinmap['Mp'])
 
     except Exception as e:
-        a = f'Error: {str(e)}'
-    return a
+        return f'Error: {str(e)}'
 
-@app.route('/MPUMPtest', methods=['GET'])
+
+@app.route('/MpTest', methods=['GET'])
 def MPUMPtest():
     try:
-        GPIO.output(pinmap['MPUMP'], GPIO.HIGH)
+        GPIO.output(pinmap['Mp'], GPIO.HIGH)
         global MPUMP_State
         MPUMP_State = True
         data = {"MPUMP_State": MPUMP_State}
@@ -550,14 +393,43 @@ def MPUMPtest():
         return response
 
     except Exception as e:
-        str = f'Error: {str(e)}'
-    return str
+        return f'Error: {str(e)}'
+
+@app.route('/ValInOn', methods=['GET'])
+def ValInOn():
+    try:
+        return v1.on(pinmap['ValIn'])
+
+    except Exception as e:
+        return f'Error: {str(e)}'
+
+@app.route('/ValInOff', methods=['GET'])
+def ValInOff():
+    try:
+        return v1.off(pinmap['ValIn'])
+
+    except Exception as e:
+        return f'Error: {str(e)}'
+
+@app.route('/ValOutOn', methods=['GET'])
+def ValOutOn():
+    try:
+        return v2.on(pinmap['ValOut'])
+
+    except Exception as e:
+        return f'Error: {str(e)}'
+
+@app.route('/ValOutOff', methods=['GET'])
+def ValOutOff():
+    try:
+        return v2.off(pinmap['ValOut'])
+
+    except Exception as e:
+        return f'Error: {str(e)}'
 
 @app.route('/Tick', methods=['GET'])
 def Tick():
     try:
-        global PH_Reading 
-        #PH_Reading = float( AnalogIn(ads, ADS.P0).voltage)
         data = {"PH_State":PH_State,"PH_Reading":PH_Reading,"EC_State":EC_State,"EC_Reading":EC_Reading,"TEMP_State":TEMP_State,"TEMP_Reading":TEMP_Reading,"WL_State":WL_State,"WL_Reading":WL_Reading,"MPUMP_State":MPUMP_State,"ECUP_State":ECUP_State,"PHUP_State":PHUP_State,"PHDWN_State":PHDWN_State}
         response = app.response_class(response=json.dumps(data), status=200, mimetype='application/json')
         print(data)
