@@ -2,36 +2,41 @@ import RPi.GPIO as GPIO
 import time
 import sys
 
-P2_State = False
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
 
-class P2():
 
-    def __init__(self):
+State = False
+
+class PEC():
+
+    def beginn(self):
         try:
-            print("P2 is initialized")
+            print("PEC is initialized")
 
         except:
             sys.exit(1)
     
     def on(self, pin):
-        global P2_State
+        global State
 
         try:
+            GPIO.setup(pin, GPIO.OUT)
             GPIO.output(pin, GPIO.LOW)
-            P2_State = True
-            return {"P2_State": P2_State}
+            P1_State = True
+            return {"STATE": State}
         
         except Exception as e:
             return f'Error: {str(e)}'
 
         
     def off(self, pin):
-        global P2_State
+        global State
 
         try:
             GPIO.output(pin, GPIO.HIGH)
-            P2_State = False
-            return {"P2_State": P2_State}
+            State = False
+            return {"STATE": State}
         
         except Exception as e:
             return f'Error: {str(e)}'

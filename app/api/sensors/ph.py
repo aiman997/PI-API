@@ -2,24 +2,20 @@ import RPi.GPIO as GPIO
 import time
 import sys
 
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+
 acidVoltage    = 3225
 neutralVoltage = 2722 
 PH_State       = False
 PH_Reading     = 0.0
 
 
-class Ph():
+class PH():
     
-    def __init__(self):
+    def begin(self):
         try:
             print("PH is  initialized")
-            #with open('phdata.txt','r') as f:
-                #neutralVoltageLine = f.readline()              #2531
-                #neutralVoltageLine = neutralVoltageLine.strip('neutralVoltage=')
-                #_neutralVoltage    = float(neutralVoltageLine)
-                #acidVoltageLine    = f.readline()           #3024
-                #acidVoltageLine    = acidVoltageLine.strip('acidVoltage=')
-                #_acidVoltage       = float(acidVoltageLine)
         
         except:
             print ("phdata.txt ERROR ! Please run DFRobot_PH_Reset")
@@ -29,9 +25,10 @@ class Ph():
         global Ph_State
         
         try:
+            GPIO.setup(pin, GPIO.OUT)
             GPIO.output(pin, GPIO.LOW)
             PH_State = True
-            return {"Ph_State": PH_State}
+            return {"STATE": PH_State}
 
         except Exception as e:
             return f'Error: {str(e)}'
@@ -42,7 +39,7 @@ class Ph():
         try:
             GPIO.output(pin, GPIO.HIGH)
             PH_State = False
-            return {"Ph_State": PH_State}
+            return {"STATE": PH_State}
         
         except Exception as e:
             return f'Error: {str(e)}'

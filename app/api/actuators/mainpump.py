@@ -2,36 +2,40 @@ import RPi.GPIO as GPIO
 import time
 import sys
 
-V2_State = False
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
 
-class V2():
+Mp_State = False
+
+class MP():
 
     def __init__(self):
         try:
-            print("V2 is initialized")
+            print("Mp is initialized")
 
         except:
             sys.exit(1)
     
     def on(self, pin):
-        global V2_State
+        global Mp_State
 
         try:
+            GPIO.setup(pin, GPIO.OUT)
             GPIO.output(pin, GPIO.LOW)
-            V2_State = True
-            return {"V2_State": V2_State}
+            Mp_State = True
+            return {'STATE': Mp_State}
         
         except Exception as e:
             return f'Error: {str(e)}'
 
         
     def off(self, pin):
-        global V2_State
+        global Mp_State
 
         try:
             GPIO.output(pin, GPIO.HIGH)
-            V2_State = False
-            return {"V2_State": V2_State}
+            Mp_State = False
+            return {'STATE': Mp_State}
         
         except Exception as e:
             return f'Error: {str(e)}'

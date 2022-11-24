@@ -2,45 +2,48 @@ import RPi.GPIO as GPIO
 import time
 import sys
 
-Wf_State = False
-class Wf():
+GPIO.setmode(GPIO.BCM)
+
+State = False
+
+class WL():
 
     def __init__(self):
         try:
-            print("Wf is initialized")
+            print("Wl is initialized")
 
         except:
-            print ("wfdata.txt ERROR ! Please run DFRobot_PH_Reset")
+            print ("WL ERROR !")
             sys.exit(1)
         
     
     def on(self, pin):
-        global Wf_State
+        global State
 
         try:
+            GPIO.setup(pin, GPIO.OUT)
             GPIO.output(pin, GPIO.LOW)
-            Wf_State = True
-            return {"Wf_State": Wf_State}
+            State = True
+            return {"STATE": State}
         
         except Exception as e:
             return f'Error: {str(e)}'
 
         
     def off(self, pin):
-        global Wf_State
+        global State
 
         try:
             GPIO.output(pin, GPIO.HIGH)
-            Wf_State = False
-            return {"Wf_State": Wf_State}
+            State = False
+            return {"STATE": State}
         
         except Exception as e:
             return f'Error: {str(e)}'
     
     def read(self, voltage):
         try:
-            wf = voltage
-            #insert logic 
-            return wf  
+            wl = str("%.1f"%(voltage/200.*100))+"%\n"
+            return wl
         except:
             return 'failed'

@@ -8,6 +8,9 @@ fastapi = "*"
 uvicorn = "*"
 pytest = "*"
 httpx = "*"
+"rpi.gpio" = "*"
+smbus = "*"
+gpiozero = "*"
 
 [dev-packages]
 

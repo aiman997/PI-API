@@ -2,6 +2,9 @@ import RPi.GPIO as GPIO
 import time
 import sys
 
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+
 _kvalue                 = 1.0
 _kvalueLow              = 1.0
 _kvalueHigh             = 1.0
@@ -9,40 +12,40 @@ _cmdReceivedBufferIndex = 0
 _voltage                = 0.0
 _temperature            = 26.6
 
-EC_State = False
+State = False
 
 
 class EC():
+
     def begin(self):
         global _kvalueLow
         global _kvalueHigh
-        
         try:
             print("EC is initialized")
         except:
-            print ("ecdata.txt ERROR ! Please run DFRobot_EC_Reset")
+            print("ecdata.txt ERROR ! Please run DFRobot_EC_Reset")
             sys.exit(1)
 
     def on(self, pin):
-        global EC_State
-
+        global State
         try:
+            GPIO.setup(pin, GPIO.OUT)
             GPIO.output(pin, GPIO.LOW)
-            EC_State = True
-            return {"EC_State": EC_State}
+            State = True
+            return {'STATE': State}
 
-        except Exeption as e:
+        except Exception as e:
             return f'Error: {str(e)}'
                
     def off(self, pin):
-        global PH_State
+        global State
 
         try:
             GPIO.output(pin, GPIO.HIGH)
-            PH_State = False
-            return {"Ph_State": PH_State}
+            State = False
+            return {"STATE": State}
                 
-        except Exeption as e:
+        except Exception as e:
             return f'Error: {str(e)}'
             
     def read(self,voltage,temperature):
@@ -53,20 +56,14 @@ class EC():
         rawEC = voltage / 3.61276185#1000*voltage *0.000001  #1000*voltage/820.0/200.0
         valueTemp = rawEC * _kvalue
         
-        #if(valueTemp > 2.5):
-        #    _kvalue = _kvalueLow
-        #    # _kvalue = _kvalueHigh
-        #    print("first condition")
-        
-        if(valueTemp < 2.0):
+        if(valueTemp > 2.5):
             _kvalue = _kvalueLow
-            # value = rawEC / _kvalue
-            value = rawEC * _kvalue * 2.60869565
-            # value = value / (1.0+0.0185*(temperature-25.0))
-            value = value / (1.0+0.02*(temperature-25.0))
-            print("this is value")
-            print(value)
-            return value
+        elif(valueTemp < 2.0):
+            _kvalue = _kvalueLow
+
+        value = rawEC * _kvalue * 2.60869565
+        value = value / (1.0+0.02*(temperature-25.0))
+        return value
 
     def calibration(self,voltage,temperature):
          rawEC = 1000*voltage/820.0/200.0
